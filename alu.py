@@ -45,16 +45,26 @@ class ALU( Elaboratable ):
     xa  = Signal( 32 )
     xb  = Signal( 32 )
     fn  = Signal( 6 )
-    # 'B' input XOR'd for subtraction operation overflow calculation.
-    xxb = Signal( 32 )
 
-    # Combinational V, Z, N flags.
+    # Combinational N, Z, and V arithmetic flags.
     # 'N' flag is always equal to the most significant result bit.
     m.d.comb += self.n.eq( self.y.bit_select( 31, 1 ) )
     # 'Z' flag is true if the result is zero.
     m.d.comb += self.z.eq( self.y == 0 )
-    # TODO: 'V' overflow flag.
-    m.d.comb += self.v.eq( 0 )
+    # 'V' flag is true if an overflow occurred.
+    with m.If( fn.matches( '01---0' ) ):
+      # With addition, overflow occurred if the two input signs are
+      # the same and those signs differ from the result's sign.
+      m.d.comb += self.v.eq( ( xa[ 31 ] == xb[ 31 ] ) &
+                             ( xa[ 31 ] != self.y[ 31 ] ) )
+    with m.Elif( fn.matches( '01---1' ) ):
+      # With subtraction, overflow occurred if A and -B have the same
+      # sign, and that sign differs from the result's sign.
+      m.d.comb += self.v.eq( ( xa[ 31 ] != xb[ 31 ] ) &
+                             ( xa[ 31 ] != self.y[ 31 ] ) )
+    with m.Else():
+      # For non-arithmetic operations, set 'V' to 0.
+      m.d.comb += self.v.eq( 0 )
 
     # Latch input / function values when count = 0 and start = 1.
     with m.If( ( cnt == 0 ) & ( self.start == 1 ) ):
@@ -105,6 +115,9 @@ class ALU( Elaboratable ):
             self.done.eq( 1 )
           ]
       # Arithmetic unit (F = [...]):
+      # Also calculates 'V' flag; overflow occurs when the signs of
+      # the values being added are the same, and that sign differs
+      # from the result.
       #  - 0b01xxx0: Y = A + B
       with m.Elif( fn.matches( '01---0' ) ):
         with m.If( cnt == 1 ):
@@ -213,6 +226,8 @@ def alu_test( alu ):
   yield from alu_ft( alu, 1, 0, C_ADD, 1 )
   yield from alu_ft( alu, 0xFFFFFFFF, 1, C_ADD, 0 )
   yield from alu_ft( alu, 29, 71, C_ADD, 100 )
+  yield from alu_ft( alu, 0x80000000, 0x80000000, C_ADD, 0 )
+  yield from alu_ft( alu, 0x7FFFFFFF, 0x7FFFFFFF, C_ADD, 0xFFFFFFFE )
 
   # Test the subtraction operation.
   print( "SUB (-) tests:" )
@@ -221,6 +236,8 @@ def alu_test( alu ):
   yield from alu_ft( alu, 1, 0, C_SUB, 1 )
   yield from alu_ft( alu, 0xFFFFFFFF, 1, C_SUB, 0xFFFFFFFE )
   yield from alu_ft( alu, 0xFFFFFFFF, 0xFFFFFFFF, C_SUB, 0 )
+  yield from alu_ft( alu, 0x7FFFFFFF, 0x80000000, C_SUB, 0xFFFFFFFF )
+  yield from alu_ft( alu, 0x80000000, 0x7FFFFFFF, C_SUB, 1 )
 
   # Test the '==' comparison operation.
   print( "CMP (==) tests:" )
@@ -251,6 +268,7 @@ def alu_test( alu ):
   yield from alu_ft( alu, 0x00000001, 1, C_SHL, 0x00000002 )
   yield from alu_ft( alu, 0x00000001, 4, C_SHL, 0x00000010 )
   yield from alu_ft( alu, 0x00000010, 4, C_SHL, 0x00000100 )
+  yield from alu_ft( alu, 0x80000000, 1, C_SHL, 0x00000000 )
 
   # Test the shift right operation.
   print ( "SHR (>>) tests:" )
