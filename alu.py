@@ -3,6 +3,9 @@ from nmigen.back.pysim import *
 
 # ALU definitions: [ bitcode, clock cycles, string ]
 C_AND = [ 0b101000, 2, "&" ]
+C_OR  = [ 0b101110, 2, "|" ]
+C_XOR = [ 0b100110, 2, "^" ]
+C_A   = [ 0b101010, 2, "=" ]
 
 class ALU( Elaboratable ):
   def __init__( self ):
@@ -111,11 +114,36 @@ def alu_test( alu ):
   yield Settle()
 
   # Test the bitwise 'AND' operation.
+  print( "AND (&) tests:" )
   yield from alu_ft( alu, 0xCCCCCCCC, 0xCCCC0000, C_AND, 0xCCCC0000 )
   yield from alu_ft( alu, 0x00000000, 0x00000000, C_AND, 0x00000000 )
   yield from alu_ft( alu, 0xFFFFFFFF, 0xFFFFFFFF, C_AND, 0xFFFFFFFF )
   yield from alu_ft( alu, 0x00000000, 0xFFFFFFFF, C_AND, 0x00000000 )
   yield from alu_ft( alu, 0xFFFFFFFF, 0x00000000, C_AND, 0x00000000 )
+
+  # Test the bitwise 'OR' operation.
+  print( "OR  (|) tests:" )
+  yield from alu_ft( alu, 0xCCCCCCCC, 0xCCCC0000, C_OR, 0xCCCCCCCC )
+  yield from alu_ft( alu, 0x00000000, 0x00000000, C_OR, 0x00000000 )
+  yield from alu_ft( alu, 0xFFFFFFFF, 0xFFFFFFFF, C_OR, 0xFFFFFFFF )
+  yield from alu_ft( alu, 0x00000000, 0xFFFFFFFF, C_OR, 0xFFFFFFFF )
+  yield from alu_ft( alu, 0xFFFFFFFF, 0x00000000, C_OR, 0xFFFFFFFF )
+
+  # Test the bitwise 'XOR' operation.
+  print( "XOR (^) tests:" )
+  yield from alu_ft( alu, 0xCCCCCCCC, 0xCCCC0000, C_XOR, 0x0000CCCC )
+  yield from alu_ft( alu, 0x00000000, 0x00000000, C_XOR, 0x00000000 )
+  yield from alu_ft( alu, 0xFFFFFFFF, 0xFFFFFFFF, C_XOR, 0x00000000 )
+  yield from alu_ft( alu, 0x00000000, 0xFFFFFFFF, C_XOR, 0xFFFFFFFF )
+  yield from alu_ft( alu, 0xFFFFFFFF, 0x00000000, C_XOR, 0xFFFFFFFF )
+
+  # Test the 'Y = A' operation.
+  print( "A   (=) tests:" )
+  yield from alu_ft( alu, 0xCCCCCCCC, 0xCCCC0000, C_A, 0xCCCCCCCC )
+  yield from alu_ft( alu, 0x00000000, 0x00000000, C_A, 0x00000000 )
+  yield from alu_ft( alu, 0xFFFFFFFF, 0xFFFFFFFF, C_A, 0xFFFFFFFF )
+  yield from alu_ft( alu, 0x00000000, 0xFFFFFFFF, C_A, 0x00000000 )
+  yield from alu_ft( alu, 0xFFFFFFFF, 0x00000000, C_A, 0xFFFFFFFF )
 
   # Done.
   yield Tick()
