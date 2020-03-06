@@ -115,9 +115,6 @@ class ALU( Elaboratable ):
             self.done.eq( 1 )
           ]
       # Arithmetic unit (F = [...]):
-      # Also calculates 'V' flag; overflow occurs when the signs of
-      # the values being added are the same, and that sign differs
-      # from the result.
       #  - 0b01xxx0: Y = A + B
       with m.Elif( fn.matches( '01---0' ) ):
         with m.If( cnt == 1 ):
@@ -136,10 +133,40 @@ class ALU( Elaboratable ):
             self.start.eq( 0 ),
             self.done.eq( 1 )
           ]
-      # TODO: Comparison unit (F = [...]):
+      # Comparison unit (F = [...]):
       #  - 0b00x011: Y = ( A == B )
+      with m.Elif( fn.matches( '00-011' ) ):
+        with m.If( cnt == 1 ):
+          m.d.sync += [
+            self.y.eq( xa == xb ),
+            cnt.eq( 0 ),
+            self.start.eq( 0 ),
+            self.done.eq( 1 )
+          ]
       #  - 0b00x101: Y = ( A <  B )
+      with m.Elif( fn.matches( '00-101' ) ):
+        with m.If( cnt == 1 ):
+          m.d.sync += [
+            # Can't use 'xa < xb' because HW logic doesn't account
+            # for negative numbers, i.e. 0xFFFFFFFF > 0x00000000.
+            self.y.eq( ( ( xb - xa ) > 0 ) &
+                       ( ( xb - xa )[ 31 ] == 0 ) ),
+            cnt.eq( 0 ),
+            self.start.eq( 0 ),
+            self.done.eq( 1 )
+          ]
       #  - 0b00x111: Y = ( A <= B )
+      with m.Elif( fn.matches( '00-111' ) ):
+        with m.If( cnt == 1 ):
+          m.d.sync += [
+            # Same as above; 'xa <= xb' hardware description
+            # does not account for negative numbers.
+            self.y.eq( ( ( xb - xa ) >= 0 ) &
+                       ( ( xb - xa )[ 31 ] == 0 ) ),
+            cnt.eq( 0 ),
+            self.start.eq( 0 ),
+            self.done.eq( 1 )
+          ]
       # TODO: Shift unit (F = [...]):
       #  - 0b11xx00: Y = A << B
       #  - 0b11xx01: Y = A >> B (no sign extend)
@@ -170,9 +197,7 @@ def alu_ft( alu, a, b, fn, expected ):
   # Wait the appropriate number of ticks.
   for i in range( fn[ 1 ] ):
     yield Tick()
-  # Done.
-  yield Tick()
-  # Check the result.
+  # Done. Check the result after combinational logic settles.
   yield Settle()
   act = yield alu.y
   if expected != act:
@@ -280,6 +305,8 @@ def alu_test( alu ):
   yield from alu_ft( alu, 1, 0, C_CLT, 0 )
   yield from alu_ft( alu, 0, 1, C_CLT, 1 )
   yield from alu_ft( alu, -1, 0, C_CLT, 1 )
+  yield from alu_ft( alu, -42, -10, C_CLT, 1 )
+  yield from alu_ft( alu, -10, -42, C_CLT, 0 )
 
   # Test the '<=' comparison operation.
   print( "CMP (<=) tests:" )
@@ -287,6 +314,9 @@ def alu_test( alu ):
   yield from alu_ft( alu, 1, 0, C_CLE, 0 )
   yield from alu_ft( alu, 0, 1, C_CLE, 1 )
   yield from alu_ft( alu, -1, 0, C_CLE, 1 )
+  yield from alu_ft( alu, -42, -10, C_CLE, 1 )
+  yield from alu_ft( alu, -10, -42, C_CLE, 0 )
+  yield from alu_ft( alu, -42, -42, C_CLE, 1 )
 
   # Test the shift left operation.
   print ( "SHL (<<) tests:" )
