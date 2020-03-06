@@ -1,19 +1,19 @@
 from nmigen import *
 from nmigen.back.pysim import *
 
-# ALU definitions: [ bitcode, clock cycles, string ]
-C_AND = [ 0b101000, 2, "&" ]
-C_OR  = [ 0b101110, 2, "|" ]
-C_XOR = [ 0b100110, 2, "^" ]
-C_A   = [ 0b101010, 2, "=" ]
-C_ADD = [ 0b010000, 2, "+" ]
-C_SUB = [ 0b010001, 2, "-" ]
-C_CEQ = [ 0b000011, 2, "==" ]
-C_CLT = [ 0b000101, 2, "<" ]
-C_CLE = [ 0b000111, 2, "<=" ]
-C_SHL = [ 0b110000, 2, "<<" ]
-C_SHR = [ 0b110001, 2, ">>" ]
-C_SRA = [ 0b110011, 2, ">>" ]
+# ALU definitions: [ bitcode, string ]
+C_AND = [ 0b101000, "&" ]
+C_OR  = [ 0b101110, "|" ]
+C_XOR = [ 0b100110, "^" ]
+C_A   = [ 0b101010, "=" ]
+C_ADD = [ 0b010000, "+" ]
+C_SUB = [ 0b010001, "-" ]
+C_CEQ = [ 0b000011, "==" ]
+C_CLT = [ 0b000101, "<" ]
+C_CLE = [ 0b000111, "<=" ]
+C_SHL = [ 0b110000, "<<" ]
+C_SHR = [ 0b110001, ">>" ]
+C_SRA = [ 0b110011, ">>" ]
 
 class ALU( Elaboratable ):
   def __init__( self ):
@@ -40,7 +40,7 @@ class ALU( Elaboratable ):
 
     # 'Counter' which determines how many cycles have elapsed in
     # the current operation.
-    cnt = Signal( 6 )
+    cnt = Signal( 2 )
     # Latched input values.
     xa  = Signal( 32 )
     xb  = Signal( 32 )
@@ -84,66 +84,45 @@ class ALU( Elaboratable ):
       with m.If( fn == C_AND[ 0 ] ):
         with m.If( cnt == 1 ):
           m.d.sync += [
-            self.y.eq( xa & xb ),
-            cnt.eq( 0 ),
-            self.start.eq( 0 ),
-            self.done.eq( 1 )
+            self.y.eq( xa & xb )
           ]
       #  - 0b101110: Y = A  OR B
       with m.Elif( fn == C_OR[ 0 ] ):
         with m.If( cnt == 1 ):
           m.d.sync += [
-            self.y.eq( xa | xb ),
-            cnt.eq( 0 ),
-            self.start.eq( 0 ),
-            self.done.eq( 1 )
+            self.y.eq( xa | xb )
           ]
       #  - 0b100110: Y = A XOR B
       with m.Elif( fn == C_XOR[ 0 ] ):
         with m.If( cnt == 1 ):
           m.d.sync += [
-            self.y.eq( xa ^ xb ),
-            cnt.eq( 0 ),
-            self.start.eq( 0 ),
-            self.done.eq( 1 )
+            self.y.eq( xa ^ xb )
           ]
       #  - 0b101010: Y = A
       with m.Elif( fn == C_A[ 0 ] ):
         with m.If( cnt == 1 ):
           m.d.sync += [
-            self.y.eq( xa ),
-            cnt.eq( 0 ),
-            self.start.eq( 0 ),
-            self.done.eq( 1 )
+            self.y.eq( xa )
           ]
       # Arithmetic unit (F = [...]):
       #  - 0b01xxx0: Y = A + B
       with m.Elif( fn.matches( '01---0' ) ):
         with m.If( cnt == 1 ):
           m.d.sync += [
-            self.y.eq( xa + xb ),
-            cnt.eq( 0 ),
-            self.start.eq( 0 ),
-            self.done.eq( 1 )
+            self.y.eq( xa + xb )
           ]
       #  - 0b01xxx1: Y = A - B
       with m.Elif( fn.matches( '01---1' ) ):
         with m.If( cnt == 1 ):
           m.d.sync += [
-            self.y.eq( xa - xb ),
-            cnt.eq( 0 ),
-            self.start.eq( 0 ),
-            self.done.eq( 1 )
+            self.y.eq( xa - xb )
           ]
       # Comparison unit (F = [...]):
       #  - 0b00x011: Y = ( A == B )
       with m.Elif( fn.matches( '00-011' ) ):
         with m.If( cnt == 1 ):
           m.d.sync += [
-            self.y.eq( xa == xb ),
-            cnt.eq( 0 ),
-            self.start.eq( 0 ),
-            self.done.eq( 1 )
+            self.y.eq( xa == xb )
           ]
       #  - 0b00x101: Y = ( A <  B )
       with m.Elif( fn.matches( '00-101' ) ):
@@ -152,10 +131,7 @@ class ALU( Elaboratable ):
             # Can't use 'xa < xb' because HW logic doesn't account
             # for negative numbers, i.e. 0xFFFFFFFF > 0x00000000.
             self.y.eq( ( ( xb - xa ) > 0 ) &
-                       ( ( xb - xa )[ 31 ] == 0 ) ),
-            cnt.eq( 0 ),
-            self.start.eq( 0 ),
-            self.done.eq( 1 )
+                       ( ( xb - xa )[ 31 ] == 0 ) )
           ]
       #  - 0b00x111: Y = ( A <= B )
       with m.Elif( fn.matches( '00-111' ) ):
@@ -164,29 +140,20 @@ class ALU( Elaboratable ):
             # Same as above; 'xa <= xb' hardware description
             # does not account for negative numbers.
             self.y.eq( ( ( xb - xa ) >= 0 ) &
-                       ( ( xb - xa )[ 31 ] == 0 ) ),
-            cnt.eq( 0 ),
-            self.start.eq( 0 ),
-            self.done.eq( 1 )
+                       ( ( xb - xa )[ 31 ] == 0 ) )
           ]
-      # TODO: Shift unit (F = [...]):
+      # Shift unit (F = [...]):
       #  - 0b11xx00: Y = A << B
       with m.Elif( fn.matches( '11--00' ) ):
         with m.If( cnt == 1 ):
           m.d.sync += [
-            self.y.eq( xa << xb ),
-            cnt.eq( 0 ),
-            self.start.eq( 0 ),
-            self.done.eq( 1 )
+            self.y.eq( xa << xb )
           ]
       #  - 0b11xx01: Y = A >> B (no sign extend)
       with m.Elif( fn.matches( '11--01' ) ):
         with m.If( cnt == 1 ):
           m.d.sync += [
-            self.y.eq( xa >> xb ),
-            cnt.eq( 0 ),
-            self.start.eq( 0 ),
-            self.done.eq( 1 )
+            self.y.eq( xa >> xb )
           ]
       #  - 0b11xx11: Y = A >> B (with sign extend)
       with m.Elif( fn.matches( '11--11' ) ):
@@ -226,10 +193,7 @@ class ALU( Elaboratable ):
                                    ( ( xb > 30 ) << 2  ) |
                                    ( ( xb > 31 ) << 1  ) )
           m.d.sync += [
-            self.y.eq( ( xa >> xb ) | signex ),
-            cnt.eq( 0 ),
-            self.start.eq( 0 ),
-            self.done.eq( 1 )
+            self.y.eq( ( xa >> xb ) | signex )
           ]
       # Return 0 after one clock cycle for unrecognized commands.
       with m.Else():
@@ -237,11 +201,14 @@ class ALU( Elaboratable ):
           m.d.sync += [
             xa.eq( 0x00000000 ),
             xb.eq( 0x00000000 ),
-            self.y.eq( 0x00000000 ),
-            cnt.eq( 0 ),
-            self.start.eq( 0 ),
-            self.done.eq( 1 )
+            self.y.eq( 0x00000000 )
           ]
+      # Set shared 'end of operation' values.
+      m.d.sync += [
+        cnt.eq( 0 ),
+        self.start.eq( 0 ),
+        self.done.eq( 1 )
+      ]
 
     # End of ALU module definition.
     return m
@@ -254,18 +221,18 @@ def alu_ft( alu, a, b, fn, expected ):
   yield alu.f.eq( fn[ 0 ] )
   # Set 'start'
   yield alu.start.eq( 1 )
-  # Wait the appropriate number of ticks.
-  for i in range( fn[ 1 ] ):
-    yield Tick()
+  # Wait two ticks.
+  yield Tick()
+  yield Tick()
   # Done. Check the result after combinational logic settles.
   yield Settle()
   act = yield alu.y
   if expected != act:
     print( "FAIL: 0x%08X %s 0x%08X = 0x%08X (got: 0x%08X)"
-           %( a, fn[ 2 ], b, expected, act ) )
+           %( a, fn[ 1 ], b, expected, act ) )
   else:
     print( "PASS: 0x%08X %s 0x%08X = 0x%08X"
-           %( a, fn[ 2 ], b, expected ) )
+           %( a, fn[ 1 ], b, expected ) )
 
 # Helper method to verify that 'N', 'Z', 'V' flags are set correctly.
 def check_nzv( alu, n, z, v ):
