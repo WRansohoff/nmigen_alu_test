@@ -45,6 +45,8 @@ class ALU( Elaboratable ):
     xa  = Signal( 32 )
     xb  = Signal( 32 )
     fn  = Signal( 6 )
+    # Extra register to hold sign-extension bits.
+    signex = Signal( 32 )
 
     # Combinational N, Z, and V arithmetic flags.
     # 'N' flag is always equal to the most significant result bit.
@@ -169,8 +171,66 @@ class ALU( Elaboratable ):
           ]
       # TODO: Shift unit (F = [...]):
       #  - 0b11xx00: Y = A << B
+      with m.Elif( fn.matches( '11--00' ) ):
+        with m.If( cnt == 1 ):
+          m.d.sync += [
+            self.y.eq( xa << xb ),
+            cnt.eq( 0 ),
+            self.start.eq( 0 ),
+            self.done.eq( 1 )
+          ]
       #  - 0b11xx01: Y = A >> B (no sign extend)
+      with m.Elif( fn.matches( '11--01' ) ):
+        with m.If( cnt == 1 ):
+          m.d.sync += [
+            self.y.eq( xa >> xb ),
+            cnt.eq( 0 ),
+            self.start.eq( 0 ),
+            self.done.eq( 1 )
+          ]
       #  - 0b11xx11: Y = A >> B (with sign extend)
+      with m.Elif( fn.matches( '11--11' ) ):
+        with m.If( cnt == 1 ):
+          with m.If( xa[ 31 ] == 0 ):
+            m.d.comb += signex.eq( 0x00000000 )
+          with m.Else():
+            m.d.comb += signex.eq( ( ( xb > 0 )  << 31 ) |
+                                   ( ( xb > 1 )  << 30 ) |
+                                   ( ( xb > 2 )  << 29 ) |
+                                   ( ( xb > 3 )  << 28 ) |
+                                   ( ( xb > 4 )  << 27 ) |
+                                   ( ( xb > 5 )  << 26 ) |
+                                   ( ( xb > 6 )  << 25 ) |
+                                   ( ( xb > 7 )  << 24 ) |
+                                   ( ( xb > 8 )  << 23 ) |
+                                   ( ( xb > 9 )  << 22 ) |
+                                   ( ( xb > 10 ) << 21 ) |
+                                   ( ( xb > 11 ) << 20 ) |
+                                   ( ( xb > 12 ) << 19 ) |
+                                   ( ( xb > 13 ) << 18 ) |
+                                   ( ( xb > 14 ) << 17 ) |
+                                   ( ( xb > 15 ) << 16 ) |
+                                   ( ( xb > 16 ) << 15 ) |
+                                   ( ( xb > 17 ) << 14 ) |
+                                   ( ( xb > 18 ) << 13 ) |
+                                   ( ( xb > 19 ) << 12 ) |
+                                   ( ( xb > 20 ) << 11 ) |
+                                   ( ( xb > 21 ) << 10 ) |
+                                   ( ( xb > 22 ) << 9  ) |
+                                   ( ( xb > 23 ) << 8  ) |
+                                   ( ( xb > 24 ) << 7  ) |
+                                   ( ( xb > 25 ) << 6  ) |
+                                   ( ( xb > 26 ) << 5  ) |
+                                   ( ( xb > 27 ) << 4  ) |
+                                   ( ( xb > 28 ) << 3  ) |
+                                   ( ( xb > 30 ) << 2  ) |
+                                   ( ( xb > 31 ) << 1  ) )
+          m.d.sync += [
+            self.y.eq( ( xa >> xb ) | signex ),
+            cnt.eq( 0 ),
+            self.start.eq( 0 ),
+            self.done.eq( 1 )
+          ]
       # Return 0 after one clock cycle for unrecognized commands.
       with m.Else():
         with m.If( cnt == 1 ):
@@ -330,8 +390,8 @@ def alu_test( alu ):
   print ( "SHR (>>) tests:" )
   yield from alu_ft( alu, 0x00000001, 0, C_SHR, 0x00000001 )
   yield from alu_ft( alu, 0x00000001, 1, C_SHR, 0x00000000 )
-  yield from alu_ft( alu, 0x00000011, 1, C_SHR, 0x00000001 )
-  yield from alu_ft( alu, 0x00000010, 1, C_SHR, 0x00000001 )
+  yield from alu_ft( alu, 0x00000011, 1, C_SHR, 0x00000008 )
+  yield from alu_ft( alu, 0x00000010, 1, C_SHR, 0x00000008 )
   yield from alu_ft( alu, 0x80000000, 1, C_SHR, 0x40000000 )
   yield from alu_ft( alu, 0x80000000, 4, C_SHR, 0x08000000 )
 
@@ -339,8 +399,8 @@ def alu_test( alu ):
   print ( "SRA (>> + sign extend) tests:" )
   yield from alu_ft( alu, 0x00000001, 0, C_SRA, 0x00000001 )
   yield from alu_ft( alu, 0x00000001, 1, C_SRA, 0x00000000 )
-  yield from alu_ft( alu, 0x00000011, 1, C_SRA, 0x00000001 )
-  yield from alu_ft( alu, 0x00000010, 1, C_SRA, 0x00000001 )
+  yield from alu_ft( alu, 0x00000011, 1, C_SRA, 0x00000008 )
+  yield from alu_ft( alu, 0x00000010, 1, C_SRA, 0x00000008 )
   yield from alu_ft( alu, 0x80000000, 1, C_SRA, 0xC0000000 )
   yield from alu_ft( alu, 0x80000000, 4, C_SRA, 0xF8000000 )
 
