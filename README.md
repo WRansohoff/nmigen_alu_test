@@ -15,6 +15,18 @@ And you can do the lab assignments here, even though they are no longer availabl
 
 ["Computation Structures" course website](https://computationstructures.org/)
 
-The .1x course mostly covers the background of how digital circuit design works at a high level, but the last few modules cover basic pipelining and describes a simple ALU (which is implemented here along with the same test cases used in the course's lab modules.)
+The .1x course mostly covers the background of how digital circuit design works at a high level, but the last few modules cover basic pipelining and describes a simple ALU (which is implemented here.)
 
 The .2x course looks like it covers how to design a more complete SoC, but I'm still working through that one.
+
+# Usage
+
+You'll need to install the [nMigen library](https://github.com/m-labs/nmigen/) with Python 3.x to run the ALU tests. You can either install it from the repository's source code, or use pip:
+
+    pip3 install nmigen nmigen-boards
+
+You can run the very basic test suite by running the `alu.py` file:
+
+    python3 alu.py
+
+The result waveforms are saved in a `test.vcd` file.
