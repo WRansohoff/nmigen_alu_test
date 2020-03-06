@@ -1,6 +1,6 @@
 # Simple nMigen ALU
 
-This is an nMigen implementation of the educational ALU which is used in MIT's edX 6004.1x and 6004.2x free online courses.
+This is an nMigen implementation of the educational ALU which is used in MIT's edX 6004.1x free online course.
 
 I wanted to brush up on digital logic since it's been a few years since college and I want to design a minimal implementation of the RISC-V ISA in nMigen. So I figured I'd follow along with some online classes using nMigen alongside the provided simulators as a learning exercise.
 
@@ -17,7 +17,7 @@ And you can do the lab assignments here, even though they are no longer availabl
 
 The .1x course mostly covers the background of how digital circuit design works at a high level, but the last few modules cover basic pipelining and describes a simple ALU (which is implemented here.)
 
-The .2x course looks like it covers how to design a more complete SoC, but I'm still working through that one.
+The .2x course looks like it covers how to design a more complete SoC using a more complex ISA than the one presented here.
 
 # Usage
 
