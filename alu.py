@@ -6,6 +6,8 @@ C_AND = [ 0b101000, 2, "&" ]
 C_OR  = [ 0b101110, 2, "|" ]
 C_XOR = [ 0b100110, 2, "^" ]
 C_A   = [ 0b101010, 2, "=" ]
+C_ADD = [ 0b010000, 2, "+" ]
+C_SUB = [ 0b010001, 2, "-" ]
 
 class ALU( Elaboratable ):
   def __init__( self ):
@@ -16,6 +18,12 @@ class ALU( Elaboratable ):
     self.f = Signal( 6,  reset = 0b000000 )
     # 'Y' data output.
     self.y = Signal( 32, reset = 0x00000000 )
+    # 'Z' arithmetic flag (last result == zero)
+    self.z = Signal()
+    # 'V' arithmetic flag (last result overflowed)
+    self.v = Signal()
+    # 'N' arithmetic flag (last result was negative)
+    self.n = Signal()
     # 'Start' and 'Done' signalling bits.
     self.start = Signal()
     self.done  = Signal()
@@ -31,6 +39,16 @@ class ALU( Elaboratable ):
     xa  = Signal( 32 )
     xb  = Signal( 32 )
     fn  = Signal( 6 )
+    # 'B' input XOR'd for subtraction operation overflow calculation.
+    xxb = Signal( 32 )
+
+    # Combinational V, Z, N flags.
+    # 'N' flag is always equal to the most significant result bit.
+    m.d.comb += self.n.eq( self.y.bit_select( 31, 1 ) )
+    # 'Z' flag is true if the result is zero.
+    m.d.comb += self.z.eq( self.y == 0 )
+    # TODO: 'V' overflow flag.
+    m.d.comb += self.v.eq( 0 )
 
     # Latch input / function values when count = 0 and start = 1.
     with m.If( ( cnt == 0 ) & ( self.start == 1 ) ):
@@ -42,8 +60,8 @@ class ALU( Elaboratable ):
         self.done.eq( 0 )
       ]
     with m.Elif( cnt > 0 ):
-      # TODO: Perform ALU computations.
-      # TODO: Boolean unit (F = [...]):
+      # Perform ALU computations based on the 'function' bits.
+      # Boolean unit (F = [...]):
       #  - 0b101000: Y = A AND B
       with m.If( fn == C_AND[ 0 ] ):
         with m.If( cnt == 1 ):
@@ -54,11 +72,51 @@ class ALU( Elaboratable ):
             self.done.eq( 1 )
           ]
       #  - 0b101110: Y = A  OR B
+      with m.Elif( fn == C_OR[ 0 ] ):
+        with m.If( cnt == 1 ):
+          m.d.sync += [
+            self.y.eq( xa | xb ),
+            cnt.eq( 0 ),
+            self.start.eq( 0 ),
+            self.done.eq( 1 )
+          ]
       #  - 0b100110: Y = A XOR B
+      with m.Elif( fn == C_XOR[ 0 ] ):
+        with m.If( cnt == 1 ):
+          m.d.sync += [
+            self.y.eq( xa ^ xb ),
+            cnt.eq( 0 ),
+            self.start.eq( 0 ),
+            self.done.eq( 1 )
+          ]
       #  - 0b101010: Y = A
-      # TODO: Arithmetic unit (F = [...]):
+      with m.Elif( fn == C_A[ 0 ] ):
+        with m.If( cnt == 1 ):
+          m.d.sync += [
+            self.y.eq( xa ),
+            cnt.eq( 0 ),
+            self.start.eq( 0 ),
+            self.done.eq( 1 )
+          ]
+      # Arithmetic unit (F = [...]):
       #  - 0b01xxx0: Y = A + B
+      with m.Elif( fn.matches( '01---0' ) ):
+        with m.If( cnt == 1 ):
+          m.d.sync += [
+            self.y.eq( xa + xb ),
+            cnt.eq( 0 ),
+            self.start.eq( 0 ),
+            self.done.eq( 1 )
+          ]
       #  - 0b01xxx1: Y = A - B
+      with m.Elif( fn.matches( '01---1' ) ):
+        with m.If( cnt == 1 ):
+          m.d.sync += [
+            self.y.eq( xa - xb ),
+            cnt.eq( 0 ),
+            self.start.eq( 0 ),
+            self.done.eq( 1 )
+          ]
       # TODO: Comparison unit (F = [...]):
       #  - 0b00x011: Y = ( A == B )
       #  - 0b00x101: Y = ( A <  B )
@@ -78,9 +136,6 @@ class ALU( Elaboratable ):
             self.start.eq( 0 ),
             self.done.eq( 1 )
           ]
-
-    # Dummy synchronous step for simulation
-    m.d.sync += self.a.eq( self.b )
 
     # End of ALU module definition.
     return m
@@ -144,6 +199,22 @@ def alu_test( alu ):
   yield from alu_ft( alu, 0xFFFFFFFF, 0xFFFFFFFF, C_A, 0xFFFFFFFF )
   yield from alu_ft( alu, 0x00000000, 0xFFFFFFFF, C_A, 0x00000000 )
   yield from alu_ft( alu, 0xFFFFFFFF, 0x00000000, C_A, 0xFFFFFFFF )
+
+  # Test the addition operation.
+  print( "ADD (+) tests:" )
+  yield from alu_ft( alu, 0, 0, C_ADD, 0 )
+  yield from alu_ft( alu, 0, 1, C_ADD, 1 )
+  yield from alu_ft( alu, 1, 0, C_ADD, 1 )
+  yield from alu_ft( alu, 0xFFFFFFFF, 1, C_ADD, 0 )
+  yield from alu_ft( alu, 29, 71, C_ADD, 100 )
+
+  # Test the subtraction operation.
+  print( "SUB (-) tests:" )
+  yield from alu_ft( alu, 0, 0, C_SUB, 0 )
+  yield from alu_ft( alu, 0, 1, C_SUB, 0xFFFFFFFF )
+  yield from alu_ft( alu, 1, 0, C_SUB, 1 )
+  yield from alu_ft( alu, 0xFFFFFFFF, 1, C_SUB, 0xFFFFFFFE )
+  yield from alu_ft( alu, 0xFFFFFFFF, 0xFFFFFFFF, C_SUB, 0 )
 
   # Done.
   yield Tick()
