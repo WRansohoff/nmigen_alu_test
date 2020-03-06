@@ -24,12 +24,12 @@ class ALU( Elaboratable ):
     self.f = Signal( 6,  reset = 0b000000 )
     # 'Y' data output.
     self.y = Signal( 32, reset = 0x00000000 )
+    # 'N' arithmetic flag (last result was negative)
+    self.n = Signal()
     # 'Z' arithmetic flag (last result == zero)
     self.z = Signal()
     # 'V' arithmetic flag (last result overflowed)
     self.v = Signal()
-    # 'N' arithmetic flag (last result was negative)
-    self.n = Signal()
     # 'Start' and 'Done' signalling bits.
     self.start = Signal()
     self.done  = Signal()
@@ -182,6 +182,18 @@ def alu_ft( alu, a, b, fn, expected ):
     print( "PASS: 0x%08X %s 0x%08X = 0x%08X"
            %( a, fn[ 2 ], b, expected ) )
 
+# Helper method to verify that 'N', 'Z', 'V' flags are set correctly.
+def check_nzv( alu, n, z, v ):
+  an = yield alu.n
+  az = yield alu.z
+  av = yield alu.v
+  if ( an == n ) and ( az == z ) and ( av == v ):
+    print( "  PASS: N, Z, V flags: %d, %d, %d"
+           %( n, z, v ) )
+  else:
+    print( "  FAIL: N, Z, V flags: %d, %d, %d (got: %d, %d, %d)"
+           %( n, z, v, an, az, av ) )
+
 # Top-level ALU test method.
 def alu_test( alu ):
   # Let signals settle after reset.
@@ -222,22 +234,36 @@ def alu_test( alu ):
   # Test the addition operation.
   print( "ADD (+) tests:" )
   yield from alu_ft( alu, 0, 0, C_ADD, 0 )
+  yield from check_nzv( alu, 0, 1, 0 )
   yield from alu_ft( alu, 0, 1, C_ADD, 1 )
+  yield from check_nzv( alu, 0, 0, 0 )
   yield from alu_ft( alu, 1, 0, C_ADD, 1 )
+  yield from check_nzv( alu, 0, 0, 0 )
   yield from alu_ft( alu, 0xFFFFFFFF, 1, C_ADD, 0 )
+  yield from check_nzv( alu, 0, 1, 0 )
   yield from alu_ft( alu, 29, 71, C_ADD, 100 )
+  yield from check_nzv( alu, 0, 0, 0 )
   yield from alu_ft( alu, 0x80000000, 0x80000000, C_ADD, 0 )
+  yield from check_nzv( alu, 0, 1, 1 )
   yield from alu_ft( alu, 0x7FFFFFFF, 0x7FFFFFFF, C_ADD, 0xFFFFFFFE )
+  yield from check_nzv( alu, 1, 0, 1 )
 
   # Test the subtraction operation.
   print( "SUB (-) tests:" )
   yield from alu_ft( alu, 0, 0, C_SUB, 0 )
+  yield from check_nzv( alu, 0, 1, 0 )
   yield from alu_ft( alu, 0, 1, C_SUB, 0xFFFFFFFF )
+  yield from check_nzv( alu, 1, 0, 0 )
   yield from alu_ft( alu, 1, 0, C_SUB, 1 )
+  yield from check_nzv( alu, 0, 0, 0 )
   yield from alu_ft( alu, 0xFFFFFFFF, 1, C_SUB, 0xFFFFFFFE )
+  yield from check_nzv( alu, 1, 0, 0 )
   yield from alu_ft( alu, 0xFFFFFFFF, 0xFFFFFFFF, C_SUB, 0 )
+  yield from check_nzv( alu, 0, 1, 0 )
   yield from alu_ft( alu, 0x7FFFFFFF, 0x80000000, C_SUB, 0xFFFFFFFF )
+  yield from check_nzv( alu, 1, 0, 1 )
   yield from alu_ft( alu, 0x80000000, 0x7FFFFFFF, C_SUB, 1 )
+  yield from check_nzv( alu, 0, 0, 1 )
 
   # Test the '==' comparison operation.
   print( "CMP (==) tests:" )
