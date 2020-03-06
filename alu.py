@@ -213,6 +213,13 @@ class ALU( Elaboratable ):
     # End of ALU module definition.
     return m
 
+# Helper method to pretty-print a 2s-complement 32-bit hex string.
+def hexs( h ):
+  if h >= 0:
+    return "0x%08X"%( h )
+  else:
+    return "0x%08X"%( ( h + ( 1 << 32 ) ) % ( 1 << 32 ) )
+
 # Perform an individual ALU functional test.
 def alu_ft( alu, a, b, fn, expected ):
   # Set A, B, F.
@@ -228,11 +235,12 @@ def alu_ft( alu, a, b, fn, expected ):
   yield Settle()
   act = yield alu.y
   if expected != act:
-    print( "FAIL: 0x%08X %s 0x%08X = 0x%08X (got: 0x%08X)"
-           %( a, fn[ 1 ], b, expected, act ) )
+    print( "FAIL: %s %s %s = %s (got: %s)"
+           %( hexs( a ), fn[ 1 ], hexs( b ),
+              hexs( expected ), hexs( act ) ) )
   else:
-    print( "PASS: 0x%08X %s 0x%08X = 0x%08X"
-           %( a, fn[ 1 ], b, expected ) )
+    print( "PASS: %s %s %s = %s"
+           %( hexs( a ), fn[ 1 ], hexs( b ), hexs( expected ) ) )
 
 # Helper method to verify that 'N', 'Z', 'V' flags are set correctly.
 def check_nzv( alu, n, z, v ):
@@ -308,9 +316,9 @@ def alu_test( alu ):
   yield from check_nzv( alu, 1, 0, 0 )
   yield from alu_ft( alu, 1, 0, C_SUB, 1 )
   yield from check_nzv( alu, 0, 0, 0 )
-  yield from alu_ft( alu, 0xFFFFFFFF, 1, C_SUB, 0xFFFFFFFE )
+  yield from alu_ft( alu, -1, 1, C_SUB, 0xFFFFFFFE )
   yield from check_nzv( alu, 1, 0, 0 )
-  yield from alu_ft( alu, 0xFFFFFFFF, 0xFFFFFFFF, C_SUB, 0 )
+  yield from alu_ft( alu, -1, -1, C_SUB, 0 )
   yield from check_nzv( alu, 0, 1, 0 )
   yield from alu_ft( alu, 0x7FFFFFFF, 0x80000000, C_SUB, 0xFFFFFFFF )
   yield from check_nzv( alu, 1, 0, 1 )
