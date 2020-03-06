@@ -8,6 +8,12 @@ C_XOR = [ 0b100110, 2, "^" ]
 C_A   = [ 0b101010, 2, "=" ]
 C_ADD = [ 0b010000, 2, "+" ]
 C_SUB = [ 0b010001, 2, "-" ]
+C_CEQ = [ 0b000011, 2, "==" ]
+C_CLT = [ 0b000101, 2, "<" ]
+C_CLE = [ 0b000111, 2, "<=" ]
+C_SHL = [ 0b110000, 2, "<<" ]
+C_SHR = [ 0b110001, 2, ">>" ]
+C_SRA = [ 0b110011, 2, ">>" ]
 
 class ALU( Elaboratable ):
   def __init__( self ):
@@ -215,6 +221,54 @@ def alu_test( alu ):
   yield from alu_ft( alu, 1, 0, C_SUB, 1 )
   yield from alu_ft( alu, 0xFFFFFFFF, 1, C_SUB, 0xFFFFFFFE )
   yield from alu_ft( alu, 0xFFFFFFFF, 0xFFFFFFFF, C_SUB, 0 )
+
+  # Test the '==' comparison operation.
+  print( "CMP (==) tests:" )
+  yield from alu_ft( alu, 0, 0, C_CEQ, 1 )
+  yield from alu_ft( alu, 1, 0, C_CEQ, 0 )
+  yield from alu_ft( alu, 0, 1, C_CEQ, 0 )
+  yield from alu_ft( alu, 42, 42, C_CEQ, 1 )
+  yield from alu_ft( alu, -42, -42, C_CEQ, 1 )
+  yield from alu_ft( alu, 42, -42, C_CEQ, 0 )
+
+  # Test the '<' comparison operation.
+  print( "CMP (<) tests:" )
+  yield from alu_ft( alu, 0, 0, C_CLT, 0 )
+  yield from alu_ft( alu, 1, 0, C_CLT, 0 )
+  yield from alu_ft( alu, 0, 1, C_CLT, 1 )
+  yield from alu_ft( alu, -1, 0, C_CLT, 1 )
+
+  # Test the '<=' comparison operation.
+  print( "CMP (<=) tests:" )
+  yield from alu_ft( alu, 0, 0, C_CLE, 1 )
+  yield from alu_ft( alu, 1, 0, C_CLE, 0 )
+  yield from alu_ft( alu, 0, 1, C_CLE, 1 )
+  yield from alu_ft( alu, -1, 0, C_CLE, 1 )
+
+  # Test the shift left operation.
+  print ( "SHL (<<) tests:" )
+  yield from alu_ft( alu, 0x00000001, 0, C_SHL, 0x00000001 )
+  yield from alu_ft( alu, 0x00000001, 1, C_SHL, 0x00000002 )
+  yield from alu_ft( alu, 0x00000001, 4, C_SHL, 0x00000010 )
+  yield from alu_ft( alu, 0x00000010, 4, C_SHL, 0x00000100 )
+
+  # Test the shift right operation.
+  print ( "SHR (>>) tests:" )
+  yield from alu_ft( alu, 0x00000001, 0, C_SHR, 0x00000001 )
+  yield from alu_ft( alu, 0x00000001, 1, C_SHR, 0x00000000 )
+  yield from alu_ft( alu, 0x00000011, 1, C_SHR, 0x00000001 )
+  yield from alu_ft( alu, 0x00000010, 1, C_SHR, 0x00000001 )
+  yield from alu_ft( alu, 0x80000000, 1, C_SHR, 0x40000000 )
+  yield from alu_ft( alu, 0x80000000, 4, C_SHR, 0x08000000 )
+
+  # Test the shift right with sign extension operation.
+  print ( "SRA (>> + sign extend) tests:" )
+  yield from alu_ft( alu, 0x00000001, 0, C_SRA, 0x00000001 )
+  yield from alu_ft( alu, 0x00000001, 1, C_SRA, 0x00000000 )
+  yield from alu_ft( alu, 0x00000011, 1, C_SRA, 0x00000001 )
+  yield from alu_ft( alu, 0x00000010, 1, C_SRA, 0x00000001 )
+  yield from alu_ft( alu, 0x80000000, 1, C_SRA, 0xC0000000 )
+  yield from alu_ft( alu, 0x80000000, 4, C_SRA, 0xF8000000 )
 
   # Done.
   yield Tick()
