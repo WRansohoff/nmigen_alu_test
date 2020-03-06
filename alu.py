@@ -1,6 +1,10 @@
 from nmigen import *
 from nmigen.back.pysim import *
 
+###############
+# ALU module: #
+###############
+
 # ALU definitions: [ bitcode, string ]
 C_AND = [ 0b101000, "&" ]
 C_OR  = [ 0b101110, "|" ]
@@ -158,43 +162,30 @@ class ALU( Elaboratable ):
       #  - 0b11xx11: Y = A >> B (with sign extend)
       with m.Elif( fn.matches( '11--11' ) ):
         with m.If( cnt == 1 ):
-          with m.If( xa[ 31 ] == 0 ):
-            m.d.comb += signex.eq( 0x00000000 )
-          with m.Else():
-            m.d.comb += signex.eq( ( ( xb > 0 )  << 31 ) |
-                                   ( ( xb > 1 )  << 30 ) |
-                                   ( ( xb > 2 )  << 29 ) |
-                                   ( ( xb > 3 )  << 28 ) |
-                                   ( ( xb > 4 )  << 27 ) |
-                                   ( ( xb > 5 )  << 26 ) |
-                                   ( ( xb > 6 )  << 25 ) |
-                                   ( ( xb > 7 )  << 24 ) |
-                                   ( ( xb > 8 )  << 23 ) |
-                                   ( ( xb > 9 )  << 22 ) |
-                                   ( ( xb > 10 ) << 21 ) |
-                                   ( ( xb > 11 ) << 20 ) |
-                                   ( ( xb > 12 ) << 19 ) |
-                                   ( ( xb > 13 ) << 18 ) |
-                                   ( ( xb > 14 ) << 17 ) |
-                                   ( ( xb > 15 ) << 16 ) |
-                                   ( ( xb > 16 ) << 15 ) |
-                                   ( ( xb > 17 ) << 14 ) |
-                                   ( ( xb > 18 ) << 13 ) |
-                                   ( ( xb > 19 ) << 12 ) |
-                                   ( ( xb > 20 ) << 11 ) |
-                                   ( ( xb > 21 ) << 10 ) |
-                                   ( ( xb > 22 ) << 9  ) |
-                                   ( ( xb > 23 ) << 8  ) |
-                                   ( ( xb > 24 ) << 7  ) |
-                                   ( ( xb > 25 ) << 6  ) |
-                                   ( ( xb > 26 ) << 5  ) |
-                                   ( ( xb > 27 ) << 4  ) |
-                                   ( ( xb > 28 ) << 3  ) |
-                                   ( ( xb > 30 ) << 2  ) |
-                                   ( ( xb > 31 ) << 1  ) )
           m.d.sync += [
             self.y.eq( ( xa >> xb ) | signex )
           ]
+          with m.If( xa[ 31 ] == 0 ):
+            m.d.comb += signex.eq( 0x00000000 )
+          with m.Else():
+            m.d.comb += signex.eq(
+              ( ( xb > 0 )  << 31 ) | ( ( xb > 1 )  << 30 ) |
+              ( ( xb > 2 )  << 29 ) | ( ( xb > 3 )  << 28 ) |
+              ( ( xb > 4 )  << 27 ) | ( ( xb > 5 )  << 26 ) |
+              ( ( xb > 6 )  << 25 ) | ( ( xb > 7 )  << 24 ) |
+              ( ( xb > 8 )  << 23 ) | ( ( xb > 9 )  << 22 ) |
+              ( ( xb > 10 ) << 21 ) | ( ( xb > 11 ) << 20 ) |
+              ( ( xb > 12 ) << 19 ) | ( ( xb > 13 ) << 18 ) |
+              ( ( xb > 14 ) << 17 ) | ( ( xb > 15 ) << 16 ) |
+              ( ( xb > 16 ) << 15 ) | ( ( xb > 17 ) << 14 ) |
+              ( ( xb > 18 ) << 13 ) | ( ( xb > 19 ) << 12 ) |
+              ( ( xb > 20 ) << 11 ) | ( ( xb > 21 ) << 10 ) |
+              ( ( xb > 22 ) << 9  ) | ( ( xb > 23 ) << 8  ) |
+              ( ( xb > 24 ) << 7  ) | ( ( xb > 25 ) << 6  ) |
+              ( ( xb > 26 ) << 5  ) | ( ( xb > 27 ) << 4  ) |
+              ( ( xb > 28 ) << 3  ) | ( ( xb > 30 ) << 2  ) |
+              ( ( xb > 31 ) << 1  )
+            )
       # Return 0 after one clock cycle for unrecognized commands.
       with m.Else():
         with m.If( cnt == 1 ):
@@ -212,6 +203,10 @@ class ALU( Elaboratable ):
 
     # End of ALU module definition.
     return m
+
+##################
+# ALU testbench: #
+##################
 
 # Helper method to pretty-print a 2s-complement 32-bit hex string.
 def hexs( h ):
@@ -235,11 +230,11 @@ def alu_ft( alu, a, b, fn, expected ):
   yield Settle()
   act = yield alu.y
   if expected != act:
-    print( "FAIL: %s %s %s = %s (got: %s)"
+    print( "\033[31mFAIL:\033[0m %s %s %s = %s (got: %s)"
            %( hexs( a ), fn[ 1 ], hexs( b ),
               hexs( expected ), hexs( act ) ) )
   else:
-    print( "PASS: %s %s %s = %s"
+    print( "\033[32mPASS:\033[0m %s %s %s = %s"
            %( hexs( a ), fn[ 1 ], hexs( b ), hexs( expected ) ) )
 
 # Helper method to verify that 'N', 'Z', 'V' flags are set correctly.
@@ -248,10 +243,11 @@ def check_nzv( alu, n, z, v ):
   az = yield alu.z
   av = yield alu.v
   if ( an == n ) and ( az == z ) and ( av == v ):
-    print( "  PASS: N, Z, V flags: %d, %d, %d"
+    print( "\033[32m  PASS:\033[0m N, Z, V flags: %d, %d, %d"
            %( n, z, v ) )
   else:
-    print( "  FAIL: N, Z, V flags: %d, %d, %d (got: %d, %d, %d)"
+    print( "\033[31m  FAIL:\033[0m N, Z, V flags: " \
+           "%d, %d, %d (got: %d, %d, %d)"
            %( n, z, v, an, az, av ) )
 
 # Top-level ALU test method.
@@ -388,7 +384,6 @@ if __name__ == "__main__":
   dut = ALU()
 
   # Run the tests.
-  # (This is just a stub for now)
   with Simulator( dut, vcd_file = open( 'test.vcd', 'w' ) ) as sim:
     def proc():
       yield from alu_test( dut )
